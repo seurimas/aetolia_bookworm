@@ -1,14 +1,14 @@
 use anyhow::Result;
 
 use clap::Parser;
+mod add_posts;
 mod aetolia_api;
 mod collection;
-mod embedding_utils;
 mod mistral_api;
 mod prelude;
 mod qdrant_utils;
+use add_posts::*;
 use aetolia_api::*;
-use embedding_utils::*;
 use prelude::*;
 use qdrant_utils::*;
 
@@ -37,14 +37,17 @@ async fn main() -> Result<()> {
     initialize_collection(&qdrant, &collection).await;
 
     if args.catchup {
+        if args.verbose {
+            println!("Catching up to news");
+        }
         aetolia
-            .nstat_catchup(&qdrant, &mistral, args.verbose)
+            .nstat_catchup(&qdrant, &mistral, args.verbose, &collection)
             .await?;
     }
 
     let query = args.query;
 
-    let proper_noun = if !args.no_pronouns {
+    let proper_noun = if !args.no_pronouns || !collection.has_pronouns() {
         Some(mistral.get_proper_nouns(&query).await?)
     } else {
         None
@@ -57,11 +60,18 @@ async fn main() -> Result<()> {
             &collection,
             &query,
             proper_noun,
-            args.limit,
+            args.limit.unwrap_or(collection.default_limit()),
         )
         .await?
     } else {
-        search_without_pronouns(&qdrant, &mistral, &collection, &query, args.limit).await?
+        search_without_pronouns(
+            &qdrant,
+            &mistral,
+            &collection,
+            &query,
+            args.limit.unwrap_or(collection.default_limit()),
+        )
+        .await?
     };
 
     let context = get_context_from_scored_point(&search_result.result);

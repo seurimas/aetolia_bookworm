@@ -9,5 +9,3 @@ pub use serde::{Deserialize, Serialize};
 pub const QDRANT_API_KEY: &str = include_str!("C:\\Users\\mtgat\\OneDrive\\qdrant.txt");
 pub const MISTRAL_API_KEY: &str = include_str!("C:\\Users\\mtgat\\OneDrive\\mistral.txt");
 pub const EMBEDDINGS_SIZE: usize = 1024;
-pub const CHUNK_SIZE: usize = 1000;
-pub const OVERLAP_SIZE: usize = 400;

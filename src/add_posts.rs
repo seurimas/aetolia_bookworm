@@ -51,6 +51,7 @@ pub async fn add_news_post_chunked(
     let mut payloads: Vec<(u64, Vec<f32>, Payload)> = vec![];
     for (i, (chunk_start, chunk_end, embedding)) in embeddings.drain(..).enumerate() {
         let id = post.id * 10000 + i as u32;
+        let chunk_data = post.message[chunk_start..chunk_end].to_string();
         let payload = json!({
             "id": post.id,
             "section": post.section.clone(),
@@ -59,7 +60,8 @@ pub async fn add_news_post_chunked(
             "from": post.from.clone(),
             "to": post.to.clone(),
             "subject": post.subject.clone(),
-            "message": post.message.clone(),
+            // "message": post.message.clone(),
+            "chunk_data": chunk_data,
             "chunk": i,
             "chunk_start": chunk_start,
             "chunk_end": chunk_end,

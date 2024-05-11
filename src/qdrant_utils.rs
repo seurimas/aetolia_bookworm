@@ -87,23 +87,99 @@ pub async fn news_post_exists(client: &QdrantClient, collection: &Collection, id
         .unwrap_or(true)
 }
 
-pub fn get_context_from_payload(payload: &HashMap<String, Value>) -> (i64, String) {
-    let message = if payload.contains_key("chunk_start") {
+pub fn get_context_from_payload(payload: &HashMap<String, Value>) -> (i64, usize, usize, String) {
+    let (start, end, message) = if payload.contains_key("chunk_data") {
+        (
+            payload["chunk_start"].as_integer().unwrap() as usize,
+            payload["chunk_end"].as_integer().unwrap() as usize,
+            payload["chunk_data"]
+                .as_str()
+                .cloned()
+                .unwrap_or("".to_string()),
+        )
+    } else if payload.contains_key("chunk_start") {
         let full_message = payload["message"]
             .as_str()
             .cloned()
             .unwrap_or("".to_string());
         let chunk_start = payload["chunk_start"].as_integer().unwrap() as usize;
         let chunk_end = payload["chunk_end"].as_integer().unwrap() as usize;
-        full_message[chunk_start..chunk_end].to_string()
+        (
+            chunk_start,
+            chunk_end,
+            full_message[chunk_start..chunk_end].to_string(),
+        )
     } else {
-        payload["summary"]
-            .as_str()
-            .cloned()
-            .unwrap_or("".to_string())
+        (
+            0,
+            0,
+            payload["summary"]
+                .as_str()
+                .cloned()
+                .unwrap_or("".to_string()),
+        )
     };
     let id = payload["id"].as_integer().unwrap_or(0);
-    (id, message)
+    (id, start, end, message)
+}
+
+fn join_chunks(chunks: &Vec<(usize, usize, String)>) -> String {
+    let mut chunks = chunks.clone();
+    chunks.sort_by_key(|(start, _, _)| *start);
+    chunks
+        .iter()
+        .fold(
+            (String::new(), 0),
+            |(mut result, mut last_end), (start, end, message)| {
+                if *start > last_end {
+                    result.push_str("\n\n");
+                    result.push_str(&message);
+                } else {
+                    let local_last_end = last_end - start;
+                    result.push_str(&message[local_last_end..]);
+                }
+                last_end = *end;
+                (result, last_end)
+            },
+        )
+        .0
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_join_chunks() {
+        let chunks = vec![
+            (0, 5, "Hello".to_string()),
+            (5, 10, " world".to_string()),
+            (10, 11, "!".to_string()),
+        ];
+        assert_eq!(join_chunks(&chunks), "Hello world!");
+    }
+
+    #[test]
+    fn test_join_chunks_overlapping() {
+        let chunks = vec![
+            (0, 6, "Hello ".to_string()),
+            (5, 11, " world!".to_string()),
+            (10, 11, "!".to_string()),
+        ];
+        assert_eq!(join_chunks(&chunks), "Hello world!");
+    }
+
+    #[test]
+    fn test_join_chunks_gap() {
+        let chunks = vec![
+            (0, 6, "Hello ".to_string()),
+            (5, 11, " world!".to_string()),
+            (10, 11, "!".to_string()),
+            (20, 27, "Goodbye".to_string()),
+            (26, 27, "e".to_string()),
+        ];
+        assert_eq!(join_chunks(&chunks), "Hello world!\n\nGoodbye");
+    }
 }
 
 pub fn get_context_from_scored_point(scored_points: &Vec<ScoredPoint>) -> String {
@@ -111,19 +187,22 @@ pub fn get_context_from_scored_point(scored_points: &Vec<ScoredPoint>) -> String
         .into_iter()
         .map(|scored_point| get_context_from_payload(&scored_point.payload))
         .collect::<Vec<_>>();
-    let mut best_chunks = HashMap::new();
-    for (id, message) in chunks.iter() {
+    let mut best_chunks: HashMap<i64, Vec<(usize, usize, String)>> = HashMap::new();
+    for (id, start, end, message) in chunks.iter() {
         if best_chunks.contains_key(id) {
-            best_chunks.insert(*id, format!("{}\n\n{}", best_chunks[id], message));
+            best_chunks
+                .get_mut(id)
+                .unwrap()
+                .push((*start, *end, message.clone()));
         } else {
-            best_chunks.insert(*id, format!("Post {}:\n{}", id, message.clone()));
+            best_chunks.insert(*id, vec![(*start, *end, message.clone())]);
         }
     }
     let mut chunks_in_order = best_chunks.iter().collect::<Vec<_>>();
     chunks_in_order.sort_by_key(|(id, _)| *id);
     chunks_in_order
         .iter()
-        .map(|(_, m)| m.to_string())
+        .map(|(id, m)| format!("Post {}:\n{}", id, join_chunks(m)))
         .collect::<Vec<_>>()
         .join("\n\n")
 }

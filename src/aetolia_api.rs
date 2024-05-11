@@ -57,7 +57,7 @@ impl NstatEntry {
     ) -> Result<()> {
         for i in (1..=self.total).rev() {
             if verbose {
-                println!("Catching up to news {}", i);
+                println!("Catching up to news {} for {}", i, collection.name());
             }
             if !add_news_post(&qdrant, &mistral, &aetolia, &collection, i, verbose).await? {
                 break;
@@ -104,20 +104,15 @@ impl AetoliaClient {
         qdrant: &QdrantClient,
         mistral: &MistralClient,
         verbose: bool,
+        collection: &Collection,
     ) -> Result<()> {
         let stats = self.get_news_stats().await?;
         for stat in stats {
             if stat.section() != "events" {
                 continue;
             }
-            stat.catchup(
-                qdrant,
-                mistral,
-                self,
-                &Collection::Short(stat.section()),
-                verbose,
-            )
-            .await?;
+            stat.catchup(qdrant, mistral, self, collection, verbose)
+                .await?;
         }
         Ok(())
     }

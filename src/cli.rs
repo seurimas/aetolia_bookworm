@@ -13,17 +13,17 @@ pub struct Query {
     #[arg(short, long, default_value = "false")]
     pub catchup: bool,
 
-    #[arg(long, default_value = "false")]
+    #[arg(long, short = 'x', default_value = "false")]
     pub no_pronouns: bool,
 
-    #[arg(long, default_value = "false")]
+    #[arg(long, short = 'a', default_value = "false")]
     pub no_json: bool,
 
     #[arg(long, default_value = "false")]
     pub no_context: bool,
 
-    #[arg(short, long, default_value = "5")]
-    pub limit: u64,
+    #[arg(short, long)]
+    pub limit: Option<u64>,
 
     #[arg(short, long, default_value = "false")]
     pub verbose: bool,
