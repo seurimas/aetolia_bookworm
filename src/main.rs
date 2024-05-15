@@ -4,11 +4,13 @@ use clap::Parser;
 mod add_posts;
 mod aetolia_api;
 mod collection;
+mod jina_api;
 mod mistral_api;
 mod prelude;
 mod qdrant_utils;
 use add_posts::*;
 use aetolia_api::*;
+use jina_api::*;
 use prelude::*;
 use qdrant_utils::*;
 
@@ -30,7 +32,7 @@ async fn main() -> Result<()> {
     let mistral = MistralClient::new()?;
     let aetolia = AetoliaClient::new();
 
-    let collection = args.collection.to_events();
+    let collection = args.collection.to_collection();
     if args.verbose {
         println!("Collection: {:?}", collection);
     }
@@ -53,6 +55,8 @@ async fn main() -> Result<()> {
         None
     };
 
+    let reranker_multiplier = if args.reranker { 1 } else { 3 };
+
     let (query_embeddings, search_result) = if let Some(proper_noun) = &proper_noun {
         search_with_pronouns(
             &qdrant,
@@ -60,7 +64,7 @@ async fn main() -> Result<()> {
             &collection,
             &query,
             proper_noun,
-            args.limit.unwrap_or(collection.default_limit()),
+            reranker_multiplier * args.limit.unwrap_or(collection.default_limit()),
         )
         .await?
     } else {
@@ -69,19 +73,39 @@ async fn main() -> Result<()> {
             &mistral,
             &collection,
             &query,
-            args.limit.unwrap_or(collection.default_limit()),
+            reranker_multiplier * args.limit.unwrap_or(collection.default_limit()),
         )
         .await?
     };
 
-    let context = get_context_from_scored_point(&search_result.result);
+    let mut payloads = search_result
+        .result
+        .iter()
+        .map(|point| point.payload.clone())
+        .collect::<Vec<_>>();
+
+    if args.reranker {
+        let jina = JinaClient::new();
+        payloads = jina
+            .rerank_payloads_and_limit(
+                &query,
+                payloads,
+                args.limit.unwrap_or(collection.default_limit()),
+            )
+            .await?;
+    }
+
+    let context = get_context_from_payloads(&payloads);
 
     let answer = mistral.chat_with_context(&query, &context).await?;
 
-    let mut bookworm_response =
-        BookwormResponse::from_search_response_and_answer(&search_result, answer.clone())
-            .with_proper_nouns(proper_noun)
-            .with_collection(collection.clone());
+    let mut bookworm_response = BookwormResponse::from_search_response_and_answer(
+        &search_result,
+        &payloads,
+        answer.clone(),
+    )
+    .with_proper_nouns(proper_noun)
+    .with_collection(collection.clone());
     if args.no_context {
         bookworm_response = bookworm_response.without_context();
     }

@@ -1,9 +1,12 @@
+use std::any;
+
 use crate::prelude::*;
 use mistralai_client::v1::{
     chat::{ChatMessage, ChatParams},
     client::Client,
     constants::{EmbedModel, Model},
     error::{ApiError, ClientError},
+    model_list::ModelListResponse,
 };
 use serde::Deserialize;
 
@@ -11,12 +14,20 @@ pub struct MistralClient(Client);
 
 impl MistralClient {
     pub fn new() -> Result<Self, ClientError> {
-        Client::new(Some(MISTRAL_API_KEY.to_string()), None, None, None)
-            .map(|client| MistralClient(client))
+        let client = Client::new(Some(MISTRAL_API_KEY.to_string()), None, None, None)
+            .map(|client| MistralClient(client));
+        client
     }
 }
 
 impl MistralClient {
+    pub async fn get_models(&self) -> Result<ModelListResponse> {
+        self.0
+            .list_models_async()
+            .await
+            .map_err(anyhow::Error::from)
+    }
+
     pub async fn get_embeddings(&self, input: Vec<String>) -> Result<Vec<Vec<f32>>, ApiError> {
         let model = EmbedModel::MistralEmbed;
         let mut embeddings = vec![];

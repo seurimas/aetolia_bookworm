@@ -119,6 +119,18 @@ pub fn get_context_from_payload(payload: &HashMap<String, Value>) -> (i64, usize
                 .unwrap_or("".to_string()),
         )
     };
+    let message =
+        if payload.contains_key("section") && payload["section"].as_str().unwrap() == "public" {
+            format!(
+                "From: {}\nTo: {}\nSubject: {}\n\n{}",
+                payload["from"].as_str().unwrap_or(&"".to_string()),
+                payload["to"].as_str().unwrap_or(&"".to_string()),
+                payload["subject"].as_str().unwrap_or(&"".to_string()),
+                message
+            )
+        } else {
+            message
+        };
     let id = payload["id"].as_integer().unwrap_or(0);
     (id, start, end, message)
 }
@@ -182,10 +194,10 @@ mod tests {
     }
 }
 
-pub fn get_context_from_scored_point(scored_points: &Vec<ScoredPoint>) -> String {
-    let chunks = scored_points
+pub fn get_context_from_payloads(payloads: &Vec<HashMap<String, Value>>) -> String {
+    let chunks = payloads
         .into_iter()
-        .map(|scored_point| get_context_from_payload(&scored_point.payload))
+        .map(|payload| get_context_from_payload(&payload))
         .collect::<Vec<_>>();
     let mut best_chunks: HashMap<i64, Vec<(usize, usize, String)>> = HashMap::new();
     for (id, start, end, message) in chunks.iter() {

@@ -8,4 +8,5 @@ pub use serde::{Deserialize, Serialize};
 
 pub const QDRANT_API_KEY: &str = include_str!("C:\\Users\\mtgat\\OneDrive\\qdrant.txt");
 pub const MISTRAL_API_KEY: &str = include_str!("C:\\Users\\mtgat\\OneDrive\\mistral.txt");
+pub const JINA_API_KEY: &str = include_str!("C:\\Users\\mtgat\\OneDrive\\jina.txt");
 pub const EMBEDDINGS_SIZE: usize = 1024;

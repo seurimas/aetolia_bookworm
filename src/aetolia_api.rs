@@ -60,7 +60,7 @@ impl NstatEntry {
                 println!("Catching up to news {} for {}", i, collection.name());
             }
             if !add_news_post(&qdrant, &mistral, &aetolia, &collection, i, verbose).await? {
-                break;
+                // break;
             }
         }
         Ok(())
@@ -88,7 +88,26 @@ impl AetoliaClient {
             Ok(response) => Ok(response),
             Err(e) => self.0.get(&url).send().await,
         }?;
-        let post = response.json::<PostResult>().await?;
+        let post = match response.json::<PostResult>().await {
+            Ok(post) => Ok(post),
+            Err(e) => {
+                println!("Error parsing response: {:?}", e);
+                Ok(PostResult {
+                    previous: None,
+                    next: None,
+                    post: NewsPost {
+                        id,
+                        section: section.to_string(),
+                        date: 0,
+                        date_ingame: "".to_string(),
+                        from: "".to_string(),
+                        to: "".to_string(),
+                        subject: "".to_string(),
+                        message: "".to_string(),
+                    },
+                })
+            }
+        }?;
         Ok(post.post)
     }
 
@@ -108,7 +127,7 @@ impl AetoliaClient {
     ) -> Result<()> {
         let stats = self.get_news_stats().await?;
         for stat in stats {
-            if stat.section() != "events" {
+            if stat.section() != collection.section() {
                 continue;
             }
             stat.catchup(qdrant, mistral, self, collection, verbose)

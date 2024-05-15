@@ -55,7 +55,7 @@ impl Collection {
 
     pub fn default_limit(&self) -> u64 {
         match self {
-            Collection::Short(_) => 20,
+            Collection::Short(_) => 10,
             Collection::Dense(_) => 10,
             Collection::Long(_) => 10,
             Collection::Summary(_) => 5,
@@ -76,15 +76,17 @@ pub enum CollectionType {
     Long,
     Summary,
     Dense,
+    PublicSummary,
 }
 
 impl CollectionType {
-    pub fn to_events(&self) -> Collection {
+    pub fn to_collection(&self) -> Collection {
         match self {
             CollectionType::Short => Collection::Short("events".to_string()),
             CollectionType::Long => Collection::Long("events".to_string()),
             CollectionType::Summary => Collection::Summary("events".to_string()),
             CollectionType::Dense => Collection::Dense("events".to_string()),
+            CollectionType::PublicSummary => Collection::Summary("public".to_string()),
         }
     }
 }
