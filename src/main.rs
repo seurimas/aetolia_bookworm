@@ -11,6 +11,7 @@ mod qdrant_utils;
 use add_posts::*;
 use aetolia_api::*;
 use jina_api::*;
+use mistralai_client::v1::constants::Model;
 use prelude::*;
 use qdrant_utils::*;
 
@@ -97,7 +98,20 @@ async fn main() -> Result<()> {
 
     let context = get_context_from_payloads(&payloads);
 
-    let answer = mistral.chat_with_context(&query, &context).await?;
+    let model = if let Some(model) = args.model {
+        match model.as_ref() {
+            "large" => Model::MistralLargeLatest,
+            "default" => Model::OpenMistral7b,
+            "mixtral" => Model::OpenMixtral8x7b,
+            _ => Model::OpenMistral7b,
+        }
+    } else {
+        Model::OpenMistral7b
+    };
+
+    let answer = mistral
+        .chat_with_context(&query, &context, Some(model.clone()))
+        .await?;
 
     let mut bookworm_response = BookwormResponse::from_search_response_and_answer(
         &search_result,
@@ -105,7 +119,8 @@ async fn main() -> Result<()> {
         answer.clone(),
     )
     .with_proper_nouns(proper_noun)
-    .with_collection(collection.clone());
+    .with_collection(collection.clone())
+    .with_model(model);
     if args.no_context {
         bookworm_response = bookworm_response.without_context();
     }

@@ -107,8 +107,13 @@ impl MistralClient {
         Ok(response.choices[0].message.content.to_string())
     }
 
-    pub async fn chat_with_context(&self, input: &str, context: &str) -> Result<String, ApiError> {
-        let model = mistralai_client::v1::constants::Model::OpenMistral7b;
+    pub async fn chat_with_context(
+        &self,
+        input: &str,
+        context: &str,
+        model: Option<Model>,
+    ) -> Result<String, ApiError> {
+        let model = model.unwrap_or(mistralai_client::v1::constants::Model::OpenMistral7b);
         let prompt = format!("Context information is below:\n{}\n\nGiven the context information and not prior knowledge, answer the query authoritatively. Some of the context may not be relevant to query. Do not explain your answer. Dates with MA come before dates with AC, and AC is more current and relevant. The current year is 5 AC.\nQuery:\n{}\nAnswer:\n", context, input);
         self.chat(prompt, model).await
     }

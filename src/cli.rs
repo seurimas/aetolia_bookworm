@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::{get_context_from_payloads, get_post_id_from_payload, prelude::*};
 use clap::{Parser, ValueEnum};
+use mistralai_client::v1::constants::Model;
 use qdrant_client::qdrant::{SearchResponse, Value};
 
 #[derive(Debug, Parser)]
@@ -9,6 +10,9 @@ use qdrant_client::qdrant::{SearchResponse, Value};
 pub struct Query {
     #[arg(value_enum)]
     pub collection: CollectionType,
+
+    #[arg(long)]
+    pub model: Option<String>,
 
     #[arg(short, long, default_value = "false")]
     pub catchup: bool,
@@ -43,6 +47,7 @@ pub struct BookwormResponse {
     pub context: Option<String>,
     pub collection: Option<Collection>,
     pub answer: String,
+    pub model: Option<Model>,
 }
 
 impl BookwormResponse {
@@ -75,6 +80,7 @@ impl BookwormResponse {
             context: Some(context),
             collection: None,
             answer,
+            model: None,
         }
     }
 
@@ -90,6 +96,11 @@ impl BookwormResponse {
 
     pub fn without_context(mut self) -> Self {
         self.context = None;
+        self
+    }
+
+    pub fn with_model(mut self, model: Model) -> Self {
+        self.model = Some(model);
         self
     }
 }

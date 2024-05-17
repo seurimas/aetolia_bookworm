@@ -61,6 +61,7 @@ pub async fn remember_query_and_results(
         "references": bookworm_response.references,
         "proper_nouns": bookworm_response.proper_nouns,
         "context": bookworm_response.context,
+        "model": bookworm_response.model,
     })
     .try_into()
     .unwrap();
